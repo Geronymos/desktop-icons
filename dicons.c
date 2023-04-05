@@ -1,25 +1,6 @@
 #include <gtk/gtk.h>
 #include <gio/gio.h>
 
-
-static GListModel *create_desktop_list(void)
-{
-    GListStore *store;
-
-    store = g_list_store_new(G_TYPE_FILE_INFO);
-
-    GFile *path = g_file_parse_name("~/desktop");
-    GFileEnumerator *children = g_file_enumerate_children(path, "standard::*,ownser::user", 0, 0, 0);
-    
-    GFileInfo *info;
-    while ( (info = g_file_enumerator_next_file(children, 0, 0)) ) {
-        g_list_store_append(store, info);
-    }
-
-    return G_LIST_MODEL(store);
-
-}
-
 static void setup_listitem_cb(GtkListItemFactory *factory, GtkListItem *list_item)
 {
     GtkWidget *box;
@@ -49,6 +30,37 @@ static void bind_listitem_cb(GtkListItemFactory *factory, GtkListItem *list_item
     gtk_label_set_label(GTK_LABEL(label), g_file_info_get_display_name(file_info));
 }
 
+static void open_app_done(GObject *source, GAsyncResult *result, gpointer data)
+{
+    GtkFileLauncher *launcher = GTK_FILE_LAUNCHER (source);
+    GError *error = NULL;
+
+    if (!gtk_file_launcher_launch_finish (launcher, result, &error))
+    {
+        g_print ("%s\n", error->message);
+        g_error_free (error);
+    }
+}
+
+// static void activate_cb(GtkListView  *list, guint position, gpointer unused)
+// {
+//     GFileInfo *file_info;
+//     GtkFileLauncher *launcher;
+//     GFile *file;
+// 
+//     file_info = g_list_model_get_item(G_LIST_MODEL(gtk_list_view_get_model(list)), position);
+//     GtkWindow *parent = GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(list)));
+// 
+//     launcher = gtk_file_launcher_new(file_info);
+//     g_file_info_
+//     g_app_info_launch_default_for_uri
+// 
+//     gtk_file_launcher_launch(launcher, parent, NULL, open_app_done, NULL);
+// 
+//     g_object_unref(launcher);
+//     g_object_unref(file_info);
+// }
+
 static void activate (GtkApplication* app, gpointer user_data)
 {
     GtkWidget *window, *gridview;
@@ -63,7 +75,11 @@ static void activate (GtkApplication* app, gpointer user_data)
     g_signal_connect(factory, "setup", G_CALLBACK(setup_listitem_cb), NULL);
     g_signal_connect(factory, "bind", G_CALLBACK(bind_listitem_cb), NULL);
 
-    model = create_desktop_list();
+    const gchar* desktop_path = g_get_user_special_dir(G_USER_DIRECTORY_DESKTOP);
+    // GFile *path = g_file_parse_name("~/desktop");
+    GFile *path = g_file_parse_name(desktop_path);
+
+    model = G_LIST_MODEL(gtk_directory_list_new("standard::*,ownser::user", path));
 
     gridview = gtk_grid_view_new(GTK_SELECTION_MODEL(gtk_single_selection_new(model)), factory);
 
