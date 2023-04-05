@@ -1,6 +1,30 @@
 #include <gtk/gtk.h>
 #include <gio/gio.h>
 
+
+static GListModel *create_desktop_list(void)
+{
+    GListStore *store;
+    GDir *dir;
+    const gchar *file_name;
+    GFile *file;
+
+    const gchar* desktop_path = g_get_user_special_dir(G_USER_DIRECTORY_DESKTOP);
+    printf("n %s\n", desktop_path);
+
+    store = g_list_store_new(G_TYPE_FILE);
+
+    dir = g_dir_open(desktop_path, 0, 0);
+    
+    while ( (file_name = g_dir_read_name(dir)) ) {
+        printf("g %s\n", file_name);
+        file = g_file_new_for_path(g_strconcat(desktop_path, "/", file_name, NULL));
+        g_list_store_append(store, file);
+    }
+
+    return G_LIST_MODEL(store);
+}
+
 static void setup_listitem_cb(GtkListItemFactory *factory, GtkListItem *list_item)
 {
     GtkWidget *box;
@@ -20,46 +44,31 @@ static void bind_listitem_cb(GtkListItemFactory *factory, GtkListItem *list_item
 {
     GtkWidget *image;
     GtkWidget *label;
+    GFile *file;
     GFileInfo *file_info;
 
     image = gtk_widget_get_first_child(gtk_list_item_get_child(list_item));
     label = gtk_widget_get_next_sibling(image);
-    file_info = gtk_list_item_get_item(list_item);
+    file = gtk_list_item_get_item(list_item);
+    file_info = g_file_query_info(file, "standard::*,ownser::user", 0, 0, 0);
 
     gtk_image_set_from_gicon(GTK_IMAGE(image), g_file_info_get_icon(file_info));
     gtk_label_set_label(GTK_LABEL(label), g_file_info_get_display_name(file_info));
 }
 
-static void open_app_done(GObject *source, GAsyncResult *result, gpointer data)
+static void activate_cb(GtkGridView  *list, guint position, gpointer unused)
 {
-    GtkFileLauncher *launcher = GTK_FILE_LAUNCHER (source);
-    GError *error = NULL;
+    GdkAppLaunchContext *context;
+    GFile *file;
+    char* file_uri = g_file_get_uri(file);
 
-    if (!gtk_file_launcher_launch_finish (launcher, result, &error))
-    {
-        g_print ("%s\n", error->message);
-        g_error_free (error);
-    }
+    file = g_list_model_get_item(G_LIST_MODEL(gtk_grid_view_get_model(list)), position);
+    printf("uri %s\n", file_uri);
+
+    g_app_info_launch_default_for_uri(file_uri, 0, 0);
+
+    g_object_unref(file);
 }
-
-// static void activate_cb(GtkListView  *list, guint position, gpointer unused)
-// {
-//     GFileInfo *file_info;
-//     GtkFileLauncher *launcher;
-//     GFile *file;
-// 
-//     file_info = g_list_model_get_item(G_LIST_MODEL(gtk_list_view_get_model(list)), position);
-//     GtkWindow *parent = GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(list)));
-// 
-//     launcher = gtk_file_launcher_new(file_info);
-//     g_file_info_
-//     g_app_info_launch_default_for_uri
-// 
-//     gtk_file_launcher_launch(launcher, parent, NULL, open_app_done, NULL);
-// 
-//     g_object_unref(launcher);
-//     g_object_unref(file_info);
-// }
 
 static void activate (GtkApplication* app, gpointer user_data)
 {
@@ -75,13 +84,11 @@ static void activate (GtkApplication* app, gpointer user_data)
     g_signal_connect(factory, "setup", G_CALLBACK(setup_listitem_cb), NULL);
     g_signal_connect(factory, "bind", G_CALLBACK(bind_listitem_cb), NULL);
 
-    const gchar* desktop_path = g_get_user_special_dir(G_USER_DIRECTORY_DESKTOP);
-    // GFile *path = g_file_parse_name("~/desktop");
-    GFile *path = g_file_parse_name(desktop_path);
-
-    model = G_LIST_MODEL(gtk_directory_list_new("standard::*,ownser::user", path));
+    model = create_desktop_list();
 
     gridview = gtk_grid_view_new(GTK_SELECTION_MODEL(gtk_single_selection_new(model)), factory);
+
+    g_signal_connect(gridview, "activate", G_CALLBACK(activate_cb), NULL);
 
     gtk_window_set_child(GTK_WINDOW (window), gridview);
 
