@@ -68,12 +68,9 @@ static void activate_cb(GtkIconView *icon_view, GtkTreePath *tree_path, gpointer
     char* file_uri; 
     store = GTK_LIST_STORE (user_data);
 
-    gtk_tree_model_get_iter (GTK_TREE_MODEL (store),
-            &iter, tree_path);
+    gtk_tree_model_get_iter (GTK_TREE_MODEL (store), &iter, tree_path);
 
-    gtk_tree_model_get (GTK_TREE_MODEL (store), &iter,
-            COL_FILE, &file,
-            -1);
+    gtk_tree_model_get (GTK_TREE_MODEL (store), &iter, COL_FILE, &file, -1);
 
     file_uri = g_file_get_uri(file);
     printf("uri %s\n", file_uri);
@@ -85,17 +82,26 @@ static void activate (GtkApplication* app, gpointer user_data)
 {
     GtkWidget *window, *icon_view;
     GtkListStore *model;
+    GdkScreen *screen;
 
     window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW (window), "Window");
-    gtk_window_set_default_size(GTK_WINDOW (window), 200, 200);
 
     gtk_layer_init_for_window(GTK_WINDOW(window));
     gtk_layer_set_layer(GTK_WINDOW(window), GTK_LAYER_SHELL_LAYER_BOTTOM);
 
+    for (int anchor = 0; anchor < 4; anchor++) 
+        gtk_layer_set_anchor(GTK_WINDOW(window), anchor, 1); 
+
+    gtk_layer_set_margin(GTK_WINDOW(window), GTK_LAYER_SHELL_EDGE_TOP, 20);
+
     model = create_desktop_list();
     icon_view = gtk_icon_view_new_with_model(GTK_TREE_MODEL(model));
 
+    gtk_widget_override_background_color(icon_view, 0, &(GdkRGBA){0,0,0,0});
+    gtk_widget_override_background_color(window, 0, &(GdkRGBA){0,0,0,0});
+
+    gtk_icon_view_set_item_width(GTK_ICON_VIEW(icon_view), 96);
     gtk_icon_view_set_selection_mode (GTK_ICON_VIEW (icon_view),
             GTK_SELECTION_MULTIPLE);
     gtk_icon_view_set_text_column(GTK_ICON_VIEW (icon_view), COL_DISPLAY_NAME);
