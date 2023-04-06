@@ -11,46 +11,78 @@ enum
     NUM_COLS
 };
 
-GtkListStore *store;
+GtkIconTheme *theme;
+
+void remove_row_by_file(GtkListStore *store, GFile *file)
+{
+    GtkTreeIter iter;
+    GFile *file_iter;
+    gboolean valid = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(store), &iter);
+
+    while (valid) 
+    {
+        gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, COL_FILE, &file_iter, -1);
+
+        if (g_file_equal(file, file_iter))
+        {
+            gtk_list_store_remove(store, &iter);   
+            return;
+        } 
+        valid = gtk_tree_model_iter_next(GTK_TREE_MODEL(store), &iter);
+    }
+    
+}
+
+void append_row_from_file(GtkListStore *store, GFile *file)
+{
+    GtkTreeIter iter;
+    GFileInfo *file_info;
+    const gchar *display_name;
+    GdkPixbuf *pixbuf;
+
+    file_info = g_file_query_info(file, "standard::*,ownser::user", 0, 0, 0);
+    display_name = g_file_info_get_display_name(file_info);
+    pixbuf = gtk_icon_info_load_icon(
+            gtk_icon_theme_lookup_by_gicon(
+                theme,
+                g_file_info_get_icon(file_info),
+                48, 0), 0);
+
+    gtk_list_store_append(store, &iter);
+    gtk_list_store_set(store, &iter,
+            COL_PIXBUF, pixbuf,
+            COL_DISPLAY_NAME, display_name,
+            COL_FILE, file, 
+            COL_FILE_INFO, file_info,
+            -1
+            );
+}
 
 // Callback function for file created signal
 static void file_changed_cb(GFileMonitor *monitor, GFile *file, GFile *other_file, GFileMonitorEvent evtype, gpointer user_data)
 {
-    char *fpath = g_file_get_path(file);
-    char *opath = NULL;
-    if (other_file) {
-        opath = g_file_get_path(other_file);
-    }
-
+    GtkListStore *store = GTK_LIST_STORE(user_data);
     switch(evtype) {
         case G_FILE_MONITOR_EVENT_DELETED:
-            g_print("%s deleted\n", fpath);
+            remove_row_by_file(store, file);
             break;
         case G_FILE_MONITOR_EVENT_CREATED:
-            g_print("%s created\n", fpath);
+            append_row_from_file(store, file);
             break;
     }
-    if (opath) {
-        g_free(opath);
-    }
-    g_free(fpath);
 }
 
 static GtkListStore *create_desktop_list(void)
 {
     GtkTreeIter iter;
+    GtkListStore *store;
     GDir *dir;
     GFile *file, *dir_file;
     GFileMonitor *monitor;
-    GFileInfo *file_info;
-    const gchar *file_name, *display_name;
-    GtkIconTheme *theme;
-    GdkPixbuf *pixbuf;
+    const gchar *desktop_path, *file_name;
 
-    const gchar* desktop_path = g_get_user_special_dir(G_USER_DIRECTORY_DESKTOP);
-    printf("n %s\n", desktop_path);
-
-    theme = gtk_icon_theme_get_default();
+    desktop_path = g_get_user_special_dir(G_USER_DIRECTORY_DESKTOP);
+    printf("desktop-path: %s\n", desktop_path);
 
     store = gtk_list_store_new(NUM_COLS,
             GDK_TYPE_PIXBUF,
@@ -59,34 +91,17 @@ static GtkListStore *create_desktop_list(void)
             G_TYPE_FILE_INFO);
 
     dir = g_dir_open(desktop_path, 0, 0);
-    
     dir_file = g_file_new_for_path(desktop_path);
-    // monitor = g_file_monitor_directory(dir_file, G_FILE_MONITOR_WATCH_MOVES, NULL, NULL);
     monitor = g_file_monitor_directory(dir_file, G_FILE_MONITOR_NONE, NULL, NULL);
 
     while ( (file_name = g_dir_read_name(dir)) ) {
-        printf("g %s\n", file_name);
+        printf("contains: %s\n", file_name);
 
         file = g_file_new_for_path(g_build_filename(desktop_path, file_name, NULL));
-        display_name = g_filename_to_utf8(file_name, -1, 0, 0, 0);
-        file_info = g_file_query_info(file, "standard::*,ownser::user", 0, 0, 0);
-        pixbuf = gtk_icon_info_load_icon(
-            gtk_icon_theme_lookup_by_gicon(
-                    theme,
-                    g_file_info_get_icon(file_info),
-                    48, 0), 0);
-
-        gtk_list_store_append(store, &iter);
-        gtk_list_store_set(store, &iter,
-                COL_PIXBUF, pixbuf,
-                COL_DISPLAY_NAME, display_name,
-                COL_FILE, file, 
-                COL_FILE_INFO, file_info,
-                -1
-                );
+        append_row_from_file(store, file);
     }
 
-    g_signal_connect(monitor, "changed", G_CALLBACK(file_changed_cb), NULL);
+    g_signal_connect(monitor, "changed", G_CALLBACK(file_changed_cb), store);
 
     return GTK_LIST_STORE(store);
 }
@@ -126,6 +141,7 @@ static void activate (GtkApplication* app, gpointer user_data)
 
     gtk_layer_set_margin(GTK_WINDOW(window), GTK_LAYER_SHELL_EDGE_TOP, 20);
 
+    theme = gtk_icon_theme_get_default();
     model = create_desktop_list();
     icon_view = gtk_icon_view_new_with_model(GTK_TREE_MODEL(model));
 
