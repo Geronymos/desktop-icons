@@ -11,12 +11,37 @@ enum
     NUM_COLS
 };
 
+GtkListStore *store;
+
+// Callback function for file created signal
+static void file_changed_cb(GFileMonitor *monitor, GFile *file, GFile *other_file, GFileMonitorEvent evtype, gpointer user_data)
+{
+    char *fpath = g_file_get_path(file);
+    char *opath = NULL;
+    if (other_file) {
+        opath = g_file_get_path(other_file);
+    }
+
+    switch(evtype) {
+        case G_FILE_MONITOR_EVENT_DELETED:
+            g_print("%s deleted\n", fpath);
+            break;
+        case G_FILE_MONITOR_EVENT_CREATED:
+            g_print("%s created\n", fpath);
+            break;
+    }
+    if (opath) {
+        g_free(opath);
+    }
+    g_free(fpath);
+}
+
 static GtkListStore *create_desktop_list(void)
 {
-    GtkListStore *store;
     GtkTreeIter iter;
     GDir *dir;
-    GFile *file;
+    GFile *file, *dir_file;
+    GFileMonitor *monitor;
     GFileInfo *file_info;
     const gchar *file_name, *display_name;
     GtkIconTheme *theme;
@@ -35,6 +60,10 @@ static GtkListStore *create_desktop_list(void)
 
     dir = g_dir_open(desktop_path, 0, 0);
     
+    dir_file = g_file_new_for_path(desktop_path);
+    // monitor = g_file_monitor_directory(dir_file, G_FILE_MONITOR_WATCH_MOVES, NULL, NULL);
+    monitor = g_file_monitor_directory(dir_file, G_FILE_MONITOR_NONE, NULL, NULL);
+
     while ( (file_name = g_dir_read_name(dir)) ) {
         printf("g %s\n", file_name);
 
@@ -56,6 +85,8 @@ static GtkListStore *create_desktop_list(void)
                 -1
                 );
     }
+
+    g_signal_connect(monitor, "changed", G_CALLBACK(file_changed_cb), NULL);
 
     return GTK_LIST_STORE(store);
 }
