@@ -11,6 +11,11 @@ enum
     NUM_COLS
 };
 
+static GtkTargetEntry targets[] =
+{
+    { "text/uri-list", 0, 0 }
+};
+
 GtkIconTheme *theme;
 
 void remove_row_by_file(GtkListStore *store, GFile *file)
@@ -70,6 +75,35 @@ static void file_changed_cb(GFileMonitor *monitor, GFile *file, GFile *other_fil
             append_row_from_file(store, file);
             break;
     }
+}
+
+static gboolean on_drag_motion(GtkWidget *widget, GdkDragContext *context,
+                               gint x, gint y, guint time, gpointer user_data)
+{
+    return TRUE;
+}
+
+static void drop_data_cb(GtkWidget* self, GdkDragContext* context, gint x, gint y, GtkSelectionData* data, guint info, guint time, gpointer user_data)
+{
+    const gchar *desktop_path;
+    gchar **uris;
+    GFile *file, *dir_file;
+    GFileInfo *file_info;
+
+    desktop_path = g_get_user_special_dir(G_USER_DIRECTORY_DESKTOP);
+    dir_file = g_file_new_for_path(desktop_path);
+    printf("test\n");
+
+    uris = gtk_selection_data_get_uris(data);
+    for (gchar **uri = uris; *uri != 0; uri++)
+    {
+        printf("dropped %s\n", *uri);
+        file = g_file_new_for_uri(*uri);
+        file_info = g_file_query_info(file, "standard::*,owner:.user", 0, 0, 0);
+        
+        g_file_copy(file, g_file_get_child(dir_file, g_file_info_get_name(file_info)), G_FILE_COPY_NONE, 0, 0, 0, 0);
+    }
+    gtk_drag_finish(context, TRUE, FALSE, time);
 }
 
 static GtkListStore *create_desktop_list(void)
@@ -154,7 +188,11 @@ static void activate (GtkApplication* app, gpointer user_data)
     gtk_icon_view_set_text_column(GTK_ICON_VIEW (icon_view), COL_DISPLAY_NAME);
     gtk_icon_view_set_pixbuf_column(GTK_ICON_VIEW (icon_view), COL_PIXBUF);
 
+    gtk_drag_dest_set(icon_view, GTK_DEST_DEFAULT_ALL, targets, G_N_ELEMENTS(targets), GDK_ACTION_COPY);
+
     g_signal_connect(icon_view, "item-activated", G_CALLBACK(activate_cb), model);
+    g_signal_connect(icon_view, "drag-data-received", G_CALLBACK(drop_data_cb), model);
+    g_signal_connect(icon_view, "drag-motion", G_CALLBACK(on_drag_motion), model);
 
     gtk_container_add(GTK_CONTAINER(window), icon_view);
     gtk_widget_grab_focus (icon_view);
