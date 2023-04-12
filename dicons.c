@@ -77,12 +77,6 @@ static void file_changed_cb(GFileMonitor *monitor, GFile *file, GFile *other_fil
     }
 }
 
-static gboolean on_drag_motion(GtkWidget *widget, GdkDragContext *context,
-                               gint x, gint y, guint time, gpointer user_data)
-{
-    return TRUE;
-}
-
 static void drop_data_cb(GtkWidget* self, GdkDragContext* context, gint x, gint y, GtkSelectionData* data, guint info, guint time, gpointer user_data)
 {
     const gchar *desktop_path;
@@ -104,6 +98,26 @@ static void drop_data_cb(GtkWidget* self, GdkDragContext* context, gint x, gint 
         g_file_copy(file, g_file_get_child(dir_file, g_file_info_get_name(file_info)), G_FILE_COPY_NONE, 0, 0, 0, 0);
     }
     gtk_drag_finish(context, TRUE, FALSE, time);
+}
+
+static void drag_data_cb(GtkWidget* widget, GdkDragContext* context, GtkSelectionData* data, guint info, guint time, gpointer user_data)
+{
+    GList *selected_items, *iter;
+    GtkTreeModel *model = GTK_TREE_MODEL(user_data);
+    gchar **uris;
+    int index = 0;
+
+    selected_items = gtk_icon_view_get_selected_items(GTK_ICON_VIEW(widget));
+    uris = g_new(gchar*, g_list_length(selected_items) + 1);
+    for (iter = selected_items; iter != NULL; iter = iter->next) 
+    {
+        GtkTreeIter tree_iter;
+        GFile *file;
+        gtk_tree_model_get_iter(model, &tree_iter, (GtkTreePath *)iter->data);
+        gtk_tree_model_get(model, &tree_iter, COL_FILE, &file, -1);
+        uris[index++] = g_file_get_uri(file);
+    }
+    gtk_selection_data_set_uris(data, uris);
 }
 
 static GtkListStore *create_desktop_list(void)
@@ -189,10 +203,17 @@ static void activate (GtkApplication* app, gpointer user_data)
     gtk_icon_view_set_pixbuf_column(GTK_ICON_VIEW (icon_view), COL_PIXBUF);
 
     gtk_drag_dest_set(icon_view, GTK_DEST_DEFAULT_ALL, targets, G_N_ELEMENTS(targets), GDK_ACTION_COPY);
+    gtk_icon_view_enable_model_drag_source (
+            GTK_ICON_VIEW(icon_view),
+            GDK_BUTTON1_MASK,
+            targets,
+            G_N_ELEMENTS(targets),
+            GDK_ACTION_COPY
+            );
 
     g_signal_connect(icon_view, "item-activated", G_CALLBACK(activate_cb), model);
     g_signal_connect(icon_view, "drag-data-received", G_CALLBACK(drop_data_cb), model);
-    g_signal_connect(icon_view, "drag-motion", G_CALLBACK(on_drag_motion), model);
+    g_signal_connect(icon_view, "drag-data-get", G_CALLBACK(drag_data_cb), model);
 
     gtk_container_add(GTK_CONTAINER(window), icon_view);
     gtk_widget_grab_focus (icon_view);
