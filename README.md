@@ -1,4 +1,4 @@
-# desktop-icon
+# desktop-icons
 
 > Show Files from a Directory on the Desktop
 
@@ -8,8 +8,7 @@
 - [X] Use xdg_user_dir to use the default desktop directory
 - [X] Start default application for the active file
 - [X] Update the Icons on changes to the directory (added/removed files)
-- [ ] Dropping files on the Desktop
-- [ ] Dragging files from the Desktop
+- [X] Drag and Drop Files from/to the Desktop
 - [ ] Multi-Monitor Support
 - [ ] Thumbnails for Images/Documents
 - [ ] Sort Rows of List Store based on Name/Type/Date
@@ -41,7 +40,7 @@ Arch
 sudo pacman -S gtk3 gtk-layer-shell
 ```
 
-### Installing
+### Installation
 
 ```sh
 git clone https://github.com/Geronymos/desktop-icons
