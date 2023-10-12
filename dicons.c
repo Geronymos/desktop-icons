@@ -1,4 +1,5 @@
 #include <gtk/gtk.h>
+#include <gio/gdesktopappinfo.h>
 #include <gio/gio.h>
 #include <gtk-layer-shell/gtk-layer-shell.h>
 
@@ -42,16 +43,32 @@ void append_row_from_file(GtkListStore *store, GFile *file)
 {
     GtkTreeIter iter;
     GFileInfo *file_info;
-    const gchar *display_name;
-    GdkPixbuf *pixbuf;
+    const gchar *display_name = NULL;
+    GdkPixbuf *pixbuf = NULL;
 
+    GKeyFile *keyfile = g_key_file_new ();
     file_info = g_file_query_info(file, "standard::*,ownser::user", 0, 0, 0);
-    display_name = g_file_info_get_display_name(file_info);
-    pixbuf = gtk_icon_info_load_icon(
-            gtk_icon_theme_lookup_by_gicon(
-                theme,
-                g_file_info_get_icon(file_info),
-                48, 0), 0);
+    if (g_key_file_load_from_file (keyfile, g_file_get_path(file), G_KEY_FILE_NONE, NULL))
+    {
+        GAppInfo* app = (GAppInfo*)g_desktop_app_info_new_from_keyfile (keyfile);
+        if(app) {
+            display_name = g_app_info_get_display_name(app);
+            pixbuf = gtk_icon_info_load_icon(
+                    gtk_icon_theme_lookup_by_gicon(
+                        theme,
+                        g_app_info_get_icon(app),
+                        48, 0), 0);
+        }
+    }
+
+    if(!display_name)
+        display_name = g_file_info_get_display_name(file_info);
+    if(!pixbuf)
+        pixbuf = gtk_icon_info_load_icon(
+                gtk_icon_theme_lookup_by_gicon(
+                    theme,
+                    g_file_info_get_icon(file_info),
+                    48, 0), 0);
 
     gtk_list_store_append(store, &iter);
     gtk_list_store_set(store, &iter,
@@ -154,22 +171,35 @@ static GtkListStore *create_desktop_list(void)
     return GTK_LIST_STORE(store);
 }
 
+static void launch_desktop_shortcut(GFile *desktop_file) {
+    GKeyFile *keyfile = g_key_file_new ();
+    if (g_key_file_load_from_file (keyfile, g_file_get_path(desktop_file), G_KEY_FILE_NONE, NULL))
+    {
+        GAppInfo* app = (GAppInfo*)g_desktop_app_info_new_from_keyfile (keyfile);
+        if(app) {
+            GAppLaunchContext* app_context = g_app_launch_context_new ();
+            g_app_info_launch(app, NULL, app_context, NULL);
+            g_clear_object (&app_context);
+            return;
+        }
+    }
+    // Not a .desktop, trying xdg open
+    char* file_uri = g_file_get_uri(desktop_file);
+    g_app_info_launch_default_for_uri(file_uri, 0, 0);
+}
+
 static void activate_cb(GtkIconView *icon_view, GtkTreePath *tree_path, gpointer user_data)
 {
     GtkListStore *store;
     GtkTreeIter iter;
     GFile *file;
-    char* file_uri; 
     store = GTK_LIST_STORE (user_data);
 
     gtk_tree_model_get_iter (GTK_TREE_MODEL (store), &iter, tree_path);
 
     gtk_tree_model_get (GTK_TREE_MODEL (store), &iter, COL_FILE, &file, -1);
 
-    file_uri = g_file_get_uri(file);
-    printf("uri %s\n", file_uri);
-
-    g_app_info_launch_default_for_uri(file_uri, 0, 0);
+    launch_desktop_shortcut(file);
 }
 
 static void activate (GtkApplication* app, gpointer user_data)
