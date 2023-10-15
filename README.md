@@ -9,6 +9,7 @@
 - [X] Start default application for the active file
 - [X] Update the Icons on changes to the directory (added/removed files)
 - [X] Drag and Drop Files from/to the Desktop
+- [X] Launching Apps from the Desktop
 - [ ] Multi-Monitor Support
 - [ ] Thumbnails for Images/Documents
 - [ ] Sort Rows of List Store based on Name/Type/Date
