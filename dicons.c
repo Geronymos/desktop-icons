@@ -171,6 +171,8 @@ static GtkListStore *create_desktop_list(void)
 static void launch_default_or_app_for_file(GFile *desktop_file) {
     GAppInfo *app;
     GKeyFile *keyfile = g_key_file_new ();
+    char* file_uri;
+
     if (g_key_file_load_from_file (keyfile, g_file_get_path(desktop_file), G_KEY_FILE_NONE, NULL))
     {
         app = (GAppInfo*)g_desktop_app_info_new_from_keyfile (keyfile);
@@ -182,7 +184,7 @@ static void launch_default_or_app_for_file(GFile *desktop_file) {
         }
     }
     // Not a .desktop, falling back to xdg open
-    char* file_uri = g_file_get_uri(desktop_file);
+    file_uri = g_file_get_uri(desktop_file);
     g_app_info_launch_default_for_uri(file_uri, 0, 0);
 }
 
