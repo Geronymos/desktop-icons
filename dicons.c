@@ -46,7 +46,7 @@ void append_row_from_file(GtkListStore *store, GFile *file)
     GdkPixbuf *pixbuf;
     GAppInfo *app;
     const gchar *display_name = NULL;
-    GdkPixbuf *icon = NULL;
+    GIcon *icon = NULL;
 
     GKeyFile *keyfile = g_key_file_new ();
     file_info = g_file_query_info(file, "standard::*,ownser::user", 0, 0, 0);
