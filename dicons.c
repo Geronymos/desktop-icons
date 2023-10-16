@@ -202,11 +202,9 @@ static void activate_cb(GtkIconView *icon_view, GtkTreePath *tree_path, gpointer
     launch_default_or_app_for_file(file);
 }
 
-static void activate (GtkApplication* app, gpointer user_data)
+static GtkWidget *window_new(GtkApplication *app, GtkListStore *model)
 {
     GtkWidget *window, *icon_view;
-    GtkListStore *model;
-    GdkScreen *screen;
 
     window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW (window), "Window");
@@ -220,8 +218,6 @@ static void activate (GtkApplication* app, gpointer user_data)
 
     gtk_layer_set_margin(GTK_WINDOW(window), GTK_LAYER_SHELL_EDGE_TOP, 20);
 
-    theme = gtk_icon_theme_get_default();
-    model = create_desktop_list();
     icon_view = gtk_icon_view_new_with_model(GTK_TREE_MODEL(model));
 
     gtk_widget_override_background_color(icon_view, 0, &(GdkRGBA){0,0,0,0});
@@ -250,6 +246,31 @@ static void activate (GtkApplication* app, gpointer user_data)
     gtk_widget_grab_focus (icon_view);
 
     gtk_widget_show_all (window);
+    
+    return window;
+}
+
+static void activate (GtkApplication* app, gpointer user_data)
+{
+    GtkWidget *window, *icon_view;
+    GtkListStore *model;
+
+    GdkDisplay *display;
+
+    display = gdk_display_get_default();
+
+    theme = gtk_icon_theme_get_default();
+    model = create_desktop_list();
+
+    GdkMonitor *monitor;
+
+    for (int i = 0; i < gdk_display_get_n_monitors(display); i++)
+    {
+        monitor = gdk_display_get_monitor(display, i);
+        window = window_new(app, model);
+        gtk_layer_set_monitor(GTK_WINDOW(window), monitor);
+    }
+
 }
 
 int main (int argc, char **argv)
@@ -257,7 +278,7 @@ int main (int argc, char **argv)
     GtkApplication *app;
     int status;
 
-    app = gtk_application_new("org.gtk.example", G_APPLICATION_DEFAULT_FLAGS);
+    app = gtk_application_new("dev.orangerot.dicons", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK (activate), NULL);
     status = g_application_run(G_APPLICATION (app), argc, argv);
     g_object_unref(app);
