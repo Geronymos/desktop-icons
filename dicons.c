@@ -212,6 +212,7 @@ static void activate (GtkApplication* app, gpointer user_data)
     gtk_window_set_title(GTK_WINDOW (window), "Window");
 
     gtk_layer_init_for_window(GTK_WINDOW(window));
+    gtk_layer_set_namespace(GTK_WINDOW(window), "desktop-icons");
     gtk_layer_set_layer(GTK_WINDOW(window), GTK_LAYER_SHELL_LAYER_BOTTOM);
 
     for (int anchor = 0; anchor < 4; anchor++) 
